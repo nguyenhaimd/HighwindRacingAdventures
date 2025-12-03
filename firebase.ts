@@ -1,4 +1,4 @@
-import * as firebaseApp from "firebase/app";
+import { initializeApp } from "firebase/app";
 import { getFirestore, Firestore } from "firebase/firestore";
 
 // --- STEP 1: PASTE YOUR FIREBASE CONFIG HERE ---
@@ -18,7 +18,7 @@ let db: Firestore | null = null;
 // This prevents the "Blank Page" crash by falling back gracefully if config is missing
 if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
   try {
-    const app = firebaseApp.initializeApp(firebaseConfig);
+    const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     console.log("Firebase connected successfully");
   } catch (error) {
