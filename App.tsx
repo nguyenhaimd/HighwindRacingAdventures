@@ -7,13 +7,11 @@ import StatCard from './components/StatCard';
 import { 
   RacesPerYearChart, 
   CumulativeMilesChart, 
-  PerformanceScatterChart, 
   SeasonalityRadarChart, 
   YearlyMileageChart,
   AveragePaceByDistanceChart,
-  MonthlyHeatmap,
-  PaceDistributionChart
 } from './components/Charts';
+import { DistanceEquivalents, WeekdayChart, PerformanceTiersChart } from './components/NewInfographics';
 import RaceList from './components/RaceList';
 import PersonalBests from './components/PersonalBests';
 import FunStats from './components/FunStats';
@@ -189,14 +187,25 @@ const App: React.FC = () => {
         {/* Race Count Table */}
         <DistanceTable data={data} />
 
-        {/* Charts Grid 1: Personal Bests & Milestones */}
+        {/* Personal Bests - Full Width */}
+        <div className="w-full">
+          <PersonalBests data={data} />
+        </div>
+
+        {/* Milestones & New Infographics */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-           <div className="lg:col-span-2">
-              <PersonalBests data={data} />
-           </div>
-           <div>
+           <div className="lg:col-span-1">
               <Milestones data={data} />
            </div>
+           <div className="lg:col-span-2">
+              <DistanceEquivalents data={data} />
+           </div>
+        </div>
+
+        {/* Fun Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+           <WeekdayChart data={data} />
+           <PerformanceTiersChart data={data} />
         </div>
 
         {/* Cumulative Miles (Full Width) */}
@@ -218,16 +227,9 @@ const App: React.FC = () => {
            </div>
         </div>
 
-        {/* Performance Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-           <PerformanceScatterChart data={data} />
+        {/* Pace Chart */}
+        <div className="w-full">
            <AveragePaceByDistanceChart data={data} />
-        </div>
-
-        {/* Heatmap & Zones */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-           <MonthlyHeatmap data={data} />
-           <PaceDistributionChart data={data} />
         </div>
 
         {/* List */}
