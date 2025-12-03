@@ -1,5 +1,4 @@
-
-import { initializeApp } from "firebase/app";
+import * as firebaseApp from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import type { Firestore } from "firebase/firestore";
 
@@ -19,7 +18,7 @@ let db: Firestore | null = null;
 // Initialize Firebase only if the API key is present in the environment
 if (firebaseConfig.apiKey) {
   try {
-    const app = initializeApp(firebaseConfig);
+    const app = firebaseApp.initializeApp(firebaseConfig);
     db = getFirestore(app);
     console.log("Firebase connected successfully");
   } catch (error) {

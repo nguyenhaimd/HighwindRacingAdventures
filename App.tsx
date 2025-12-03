@@ -1,8 +1,8 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { RACE_DATA as INITIAL_RACE_DATA } from './data';
 import { processData } from './utils';
-import { Trophy, Activity, Map as MapIcon, Zap, Plus, AlertCircle, Gauge } from 'lucide-react';
+import { Trophy, Activity, Map as MapIcon, Zap, Plus, AlertCircle, Gauge, DatabaseBackup } from 'lucide-react';
 import StatCard from './components/StatCard';
 import { 
   RacesPerYearChart, 
@@ -21,13 +21,41 @@ import Milestones from './components/Milestones';
 import { RawRaceData } from './types';
 import AddRaceForm from './components/AddRaceForm';
 import { db } from './firebase';
-import { collection, onSnapshot, addDoc, query } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, query, writeBatch, doc } from 'firebase/firestore';
 
 const App: React.FC = () => {
   const [rawData, setRawData] = useState<RawRaceData[]>(INITIAL_RACE_DATA);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isFirebaseConnected, setIsFirebaseConnected] = useState(false);
+  const hasAutoSeeded = useRef(false);
+
+  // Helper to populate DB with initial data
+  const seedDatabase = async () => {
+    if (!db) return;
+    setIsLoading(true);
+    try {
+        const batch = writeBatch(db);
+        // Firestore batches are limited to 500 operations. Our data is ~100 items.
+        INITIAL_RACE_DATA.forEach(race => {
+            const docRef = doc(collection(db, "races"));
+            batch.set(docRef, race);
+        });
+        await batch.commit();
+        console.log("Database seeded successfully with demo data");
+    } catch (e) {
+        console.error("Error seeding database: ", e);
+        alert("Failed to restore data. Check console for details.");
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const handleRestoreData = async () => {
+    if (window.confirm("This will upload the default 80+ historical races to your database. Continue?")) {
+        await seedDatabase();
+    }
+  };
 
   // Fetch from Firebase
   useEffect(() => {
@@ -36,10 +64,16 @@ const App: React.FC = () => {
       try {
         const q = query(collection(db, "races"));
         
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribe = onSnapshot(q, async (snapshot) => {
           const firebaseRaces = snapshot.docs.map(doc => doc.data() as RawRaceData);
+          
           if (firebaseRaces.length > 0) {
             setRawData(firebaseRaces);
+          } else if (snapshot.empty && !hasAutoSeeded.current) {
+            // If DB is empty on first load, auto-seed it so the user doesn't lose the "demo" view
+            hasAutoSeeded.current = true;
+            console.log("Empty database detected. Auto-seeding...");
+            await seedDatabase();
           }
           setIsLoading(false);
         }, (error) => {
@@ -95,7 +129,6 @@ const App: React.FC = () => {
             await addDoc(collection(db, "races"), newRace);
         } catch (e) {
             console.error("Error adding document: ", e);
-            // Fallback to local state if firebase write fails (or just let user know)
             setRawData(prev => [newRace, ...prev]);
         }
     } else {
@@ -108,7 +141,7 @@ const App: React.FC = () => {
         <div className="min-h-screen flex items-center justify-center bg-slate-50">
             <div className="flex flex-col items-center">
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-slate-500 font-medium">Loading Racing Data...</p>
+                <p className="text-slate-500 font-medium">Syncing Racing Data...</p>
             </div>
         </div>
     );
@@ -136,6 +169,19 @@ const App: React.FC = () => {
                     Demo Mode
                 </div>
             )}
+            
+            {/* Recovery Button: Visible if connected but data seems wiped out (low count) */}
+            {isFirebaseConnected && data.length < 10 && (
+                <button 
+                  onClick={handleRestoreData}
+                  className="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                  title="Restore default demo data"
+                >
+                  <DatabaseBackup className="w-4 h-4" />
+                  <span className="hidden sm:inline">Restore Defaults</span>
+                </button>
+            )}
+
             <button 
               onClick={() => setShowAddForm(true)}
               className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm active:transform active:scale-95"
