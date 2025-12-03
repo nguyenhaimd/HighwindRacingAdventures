@@ -32,13 +32,15 @@ const App: React.FC = () => {
 
   // Helper to populate DB with initial data
   const seedDatabase = async () => {
-    if (!db) return;
+    const firestore = db; // Capture local reference for type narrowing
+    if (!firestore) return;
+    
     setIsLoading(true);
     try {
-        const batch = writeBatch(db);
+        const batch = writeBatch(firestore);
         // Firestore batches are limited to 500 operations. Our data is ~100 items.
         INITIAL_RACE_DATA.forEach(race => {
-            const docRef = doc(collection(db, "races"));
+            const docRef = doc(collection(firestore, "races"));
             batch.set(docRef, race);
         });
         await batch.commit();
@@ -59,10 +61,11 @@ const App: React.FC = () => {
 
   // Fetch from Firebase
   useEffect(() => {
-    if (db) {
+    const firestore = db; // Capture local reference
+    if (firestore) {
       setIsFirebaseConnected(true);
       try {
-        const q = query(collection(db, "races"));
+        const q = query(collection(firestore, "races"));
         
         const unsubscribe = onSnapshot(q, async (snapshot) => {
           const firebaseRaces = snapshot.docs.map(doc => doc.data() as RawRaceData);
@@ -124,9 +127,10 @@ const App: React.FC = () => {
   }, [data]);
 
   const handleAddRace = async (newRace: RawRaceData) => {
-    if (db) {
+    const firestore = db; // Capture local reference
+    if (firestore) {
         try {
-            await addDoc(collection(db, "races"), newRace);
+            await addDoc(collection(firestore, "races"), newRace);
         } catch (e) {
             console.error("Error adding document: ", e);
             setRawData(prev => [newRace, ...prev]);
