@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ProcessedRaceData, RaceCategory } from '../types';
 import { Trophy, Timer, Calendar } from 'lucide-react';

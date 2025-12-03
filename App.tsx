@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { RACE_DATA as INITIAL_RACE_DATA } from './data';
 import { processData } from './utils';
@@ -24,7 +23,7 @@ import RaceMap from './components/RaceMap';
 import { RaceCategory, RawRaceData } from './types';
 import AddRaceForm from './components/AddRaceForm';
 import { db } from './firebase';
-import { collection, onSnapshot, addDoc, orderBy, query } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, query } from 'firebase/firestore';
 
 const App: React.FC = () => {
   const [rawData, setRawData] = useState<RawRaceData[]>(INITIAL_RACE_DATA);

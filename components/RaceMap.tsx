@@ -1,8 +1,9 @@
-
 import React, { useEffect, useRef } from 'react';
 import { ProcessedRaceData } from '../types';
 import { getCoordinates } from '../utils';
 import { MapPin } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 interface RaceMapProps {
   data: ProcessedRaceData[];
@@ -10,7 +11,7 @@ interface RaceMapProps {
 
 const RaceMap: React.FC<RaceMapProps> = ({ data }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null); // Use any for Leaflet instance since we don't have @types/leaflet
+  const mapInstanceRef = useRef<L.Map | null>(null);
 
   // Group races by location
   const locationGroups = React.useMemo(() => {
@@ -33,10 +34,6 @@ const RaceMap: React.FC<RaceMapProps> = ({ data }) => {
   }, [data]);
 
   useEffect(() => {
-    // Check if Leaflet is loaded
-    if (!(window as any).L) return;
-    const L = (window as any).L;
-
     if (mapContainerRef.current && !mapInstanceRef.current) {
       // Initialize map centered on Mid-Atlantic (roughly Washington DC area)
       mapInstanceRef.current = L.map(mapContainerRef.current).setView([38.9072, -77.0369], 7);
@@ -54,7 +51,7 @@ const RaceMap: React.FC<RaceMapProps> = ({ data }) => {
         // Remove old markers (simple loop approach, or we could use a LayerGroup)
         mapInstanceRef.current.eachLayer((layer: any) => {
             if (layer instanceof L.CircleMarker || layer instanceof L.Marker) {
-                mapInstanceRef.current.removeLayer(layer);
+                mapInstanceRef.current?.removeLayer(layer);
             }
         });
 
@@ -68,7 +65,7 @@ const RaceMap: React.FC<RaceMapProps> = ({ data }) => {
                 fillOpacity: 0.6,
                 radius: size,
                 weight: 2
-            }).addTo(mapInstanceRef.current);
+            }).addTo(mapInstanceRef.current!);
 
             // Create popup content
             const raceList = loc.races.slice(0, 5).map(r => `<li>${r.year}: ${r.event}</li>`).join('');
@@ -91,12 +88,7 @@ const RaceMap: React.FC<RaceMapProps> = ({ data }) => {
 
     // Cleanup on unmount
     return () => {
-        // We typically don't destroy the map in React 18 strict mode dev to avoid flashes, 
-        // but for production cleanliness:
-        // if (mapInstanceRef.current) {
-        //    mapInstanceRef.current.remove();
-        //    mapInstanceRef.current = null;
-        // }
+        // We typically don't destroy the map in React 18 strict mode dev to avoid flashes
     };
 
   }, [locationGroups]);

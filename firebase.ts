@@ -18,9 +18,7 @@ let db: Firestore | null = null;
 // This prevents the "Blank Page" crash by falling back gracefully if config is missing
 if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
   try {
-    // Use type assertion to bypass "Module has no exported member 'initializeApp'" error
-    // which can happen if types don't perfectly match the installed version or configuration.
-    const app = (firebaseApp as any).initializeApp(firebaseConfig);
+    const app = firebaseApp.initializeApp(firebaseConfig);
     db = getFirestore(app);
     console.log("Firebase connected successfully");
   } catch (error) {

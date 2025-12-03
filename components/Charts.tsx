@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   LineChart,
@@ -24,8 +23,7 @@ import {
   PolarGrid,
   PolarAngleAxis,
   PolarRadiusAxis,
-  LabelList,
-  ReferenceLine
+  LabelList
 } from 'recharts';
 import { ProcessedRaceData } from '../types';
 import { formatPace } from '../utils';

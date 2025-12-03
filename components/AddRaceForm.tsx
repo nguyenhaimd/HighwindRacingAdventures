@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { X, Calendar, MapPin, Trophy, Timer, Ruler } from 'lucide-react';
 import { RawRaceData, RaceCategory } from '../types';
