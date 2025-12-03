@@ -6,7 +6,6 @@ import { Trophy, Activity, Map as MapIcon, Zap, Plus, AlertCircle, Gauge } from 
 import StatCard from './components/StatCard';
 import { 
   RacesPerYearChart, 
-  DistanceDistributionChart, 
   CumulativeMilesChart, 
   PerformanceScatterChart, 
   SeasonalityRadarChart, 
@@ -20,6 +19,7 @@ import PersonalBests from './components/PersonalBests';
 import FunStats from './components/FunStats';
 import RaceMap from './components/RaceMap';
 import DistanceTable from './components/DistanceTable';
+import Milestones from './components/Milestones';
 import { RawRaceData } from './types';
 import AddRaceForm from './components/AddRaceForm';
 import { db } from './firebase';
@@ -189,13 +189,13 @@ const App: React.FC = () => {
         {/* Race Count Table */}
         <DistanceTable data={data} />
 
-        {/* Charts Grid 1: Personal Bests & Distribution */}
+        {/* Charts Grid 1: Personal Bests & Milestones */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
            <div className="lg:col-span-2">
               <PersonalBests data={data} />
            </div>
            <div>
-              <DistanceDistributionChart data={data} />
+              <Milestones data={data} />
            </div>
         </div>
 
