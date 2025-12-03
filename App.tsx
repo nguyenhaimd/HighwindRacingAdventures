@@ -1,8 +1,7 @@
-
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { RACE_DATA as INITIAL_RACE_DATA } from './data';
 import { processData } from './utils';
-import { Trophy, Activity, Map as MapIcon, Zap, Plus, AlertCircle, Gauge, DatabaseBackup } from 'lucide-react';
+import { Trophy, Activity, Map as MapIcon, Zap, Plus, AlertCircle, Route, DatabaseBackup, Lock, Unlock } from 'lucide-react';
 import StatCard from './components/StatCard';
 import { 
   RacesPerYearChart, 
@@ -21,14 +20,21 @@ import Milestones from './components/Milestones';
 import { RawRaceData } from './types';
 import AddRaceForm from './components/AddRaceForm';
 import { db } from './firebase';
-import { collection, onSnapshot, addDoc, query, writeBatch, doc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, query, writeBatch, doc, updateDoc } from 'firebase/firestore';
 
 const App: React.FC = () => {
-  const [rawData, setRawData] = useState<RawRaceData[]>(INITIAL_RACE_DATA);
+  // Initialize demo data with stable IDs so updates work in demo mode
+  const [rawData, setRawData] = useState<RawRaceData[]>(() => 
+    INITIAL_RACE_DATA.map((r, i) => ({ ...r, id: `demo-${i}` }))
+  );
+  
   const [showAddForm, setShowAddForm] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isFirebaseConnected, setIsFirebaseConnected] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const hasAutoSeeded = useRef(false);
+  const titleClickCount = useRef(0);
+  const titleClickTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // Helper to populate DB with initial data
   const seedDatabase = async () => {
@@ -59,6 +65,37 @@ const App: React.FC = () => {
     }
   };
 
+  // Admin Toggle Logic
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Secret combo: Ctrl + Shift + L
+      if (e.ctrlKey && e.shiftKey && (e.key === 'L' || e.key === 'l')) {
+        e.preventDefault();
+        setIsAdmin(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleTitleClick = () => {
+    titleClickCount.current += 1;
+    
+    if (titleClickTimeout.current) {
+      clearTimeout(titleClickTimeout.current);
+    }
+
+    if (titleClickCount.current >= 5) {
+      setIsAdmin(prev => !prev);
+      titleClickCount.current = 0;
+    } else {
+      titleClickTimeout.current = setTimeout(() => {
+        titleClickCount.current = 0;
+      }, 2000); // Reset count if 5 clicks don't happen within 2 seconds
+    }
+  };
+
   // Fetch from Firebase
   useEffect(() => {
     const firestore = db; // Capture local reference
@@ -68,7 +105,11 @@ const App: React.FC = () => {
         const q = query(collection(firestore, "races"));
         
         const unsubscribe = onSnapshot(q, async (snapshot) => {
-          const firebaseRaces = snapshot.docs.map(doc => doc.data() as RawRaceData);
+          // IMPORTANT: Capture the document ID so we can update it later
+          const firebaseRaces = snapshot.docs.map(doc => ({ 
+            ...doc.data(), 
+            id: doc.id 
+          } as RawRaceData));
           
           if (firebaseRaces.length > 0) {
             setRawData(firebaseRaces);
@@ -136,7 +177,30 @@ const App: React.FC = () => {
             setRawData(prev => [newRace, ...prev]);
         }
     } else {
-        setRawData(prev => [newRace, ...prev]);
+        // For demo, add a temp ID
+        setRawData(prev => [{ ...newRace, id: `demo-${Date.now()}` }, ...prev]);
+    }
+  };
+
+  const handleUpdateRace = async (id: string, updates: Partial<RawRaceData>) => {
+    const firestore = db;
+    
+    if (firestore && isFirebaseConnected) {
+        try {
+            const raceRef = doc(firestore, "races", id);
+            await updateDoc(raceRef, updates);
+        } catch (e) {
+            console.error("Error updating race:", e);
+            alert("Failed to save changes.");
+        }
+    } else {
+        // Demo Mode Update
+        setRawData(prev => prev.map(race => {
+            if (race.id === id) {
+                return { ...race, ...updates };
+            }
+            return race;
+        }));
     }
   };
 
@@ -156,7 +220,11 @@ const App: React.FC = () => {
       {/* Header */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
+          <div 
+            className="flex items-center space-x-3 cursor-pointer select-none"
+            onClick={handleTitleClick}
+            title="Click 5 times to toggle Admin Mode"
+          >
              <div className="bg-blue-600 p-2 rounded-lg">
                 <Activity className="w-5 h-5 text-white" />
              </div>
@@ -167,6 +235,13 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center space-x-3">
+            {isAdmin && (
+                <div className="flex items-center text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 animate-in fade-in">
+                    <Unlock className="w-3 h-3 mr-1.5" />
+                    Admin Active
+                </div>
+            )}
+
             {!isFirebaseConnected && (
                 <div className="hidden md:flex items-center text-xs text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
                     <AlertCircle className="w-3 h-3 mr-1.5" />
@@ -174,25 +249,30 @@ const App: React.FC = () => {
                 </div>
             )}
             
-            {/* Recovery Button: Visible if connected but data seems wiped out (low count) */}
-            {isFirebaseConnected && data.length < 10 && (
-                <button 
-                  onClick={handleRestoreData}
-                  className="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                  title="Restore default demo data"
-                >
-                  <DatabaseBackup className="w-4 h-4" />
-                  <span className="hidden sm:inline">Restore Defaults</span>
-                </button>
-            )}
+            {/* Admin Only Actions */}
+            {isAdmin && (
+              <>
+                {/* Recovery Button: Visible if connected but data seems wiped out */}
+                {isFirebaseConnected && data.length < 10 && (
+                    <button 
+                      onClick={handleRestoreData}
+                      className="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                      title="Restore default demo data"
+                    >
+                      <DatabaseBackup className="w-4 h-4" />
+                      <span className="hidden sm:inline">Restore Defaults</span>
+                    </button>
+                )}
 
-            <button 
-              onClick={() => setShowAddForm(true)}
-              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm active:transform active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Log Race</span>
-            </button>
+                <button 
+                  onClick={() => setShowAddForm(true)}
+                  className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm active:transform active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Log Race</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -211,7 +291,7 @@ const App: React.FC = () => {
           <StatCard 
             label="Total Miles" 
             value={stats.totalMiles} 
-            icon={Gauge} 
+            icon={Route} 
             colorClass="bg-indigo-500" 
             subValue="Lifetime racing mileage"
           />
@@ -283,7 +363,11 @@ const App: React.FC = () => {
         </div>
 
         {/* List */}
-        <RaceList data={data} />
+        <RaceList 
+            data={data} 
+            onUpdateRace={handleUpdateRace} 
+            isAdmin={isAdmin}
+        />
 
       </main>
 

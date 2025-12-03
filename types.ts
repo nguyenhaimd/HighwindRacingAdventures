@@ -1,5 +1,6 @@
 
 export interface RawRaceData {
+  id?: string; // Firestore Document ID or generated ID
   event: string;
   date: string;
   location: string;
@@ -10,6 +11,7 @@ export interface RawRaceData {
   time: string;
   year: number;
   distanceType?: string;
+  notes?: string;
 }
 
 export interface ProcessedRaceData extends RawRaceData {

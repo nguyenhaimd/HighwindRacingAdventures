@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { X, Calendar, MapPin, Trophy, Timer, Ruler } from 'lucide-react';
+import { X, Calendar, MapPin, Trophy, Timer, Ruler, FileText } from 'lucide-react';
 import { RawRaceData, RaceCategory } from '../types';
 
 interface AddRaceFormProps {
@@ -18,7 +19,8 @@ const AddRaceForm: React.FC<AddRaceFormProps> = ({ onClose, onAdd }) => {
     overall: '',
     gender: '',
     division: '',
-    distanceType: ''
+    distanceType: '',
+    notes: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -29,7 +31,7 @@ const AddRaceForm: React.FC<AddRaceFormProps> = ({ onClose, onAdd }) => {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -217,6 +219,21 @@ const AddRaceForm: React.FC<AddRaceFormProps> = ({ onClose, onAdd }) => {
                   </div>
                 </div>
               </div>
+
+               {/* Notes Input */}
+               <div>
+                  <div className="flex items-center space-x-2 text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 mt-2">
+                    <FileText className="w-3 h-3" />
+                    <span>Notes</span>
+                  </div>
+                  <textarea 
+                    name="notes"
+                    value={formData.notes} 
+                    onChange={handleChange}
+                    placeholder="Add any notes about weather, how you felt, etc."
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all min-h-[80px]" 
+                  />
+               </div>
             </div>
 
           </form>

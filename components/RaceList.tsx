@@ -1,7 +1,6 @@
-
-import React, { useState, useMemo } from 'react';
-import { ProcessedRaceData } from '../types';
-import { Search, MapPin, Calendar, Timer, Trophy, Filter, Ruler, X, User, Users, Flag, ChevronRight, Calculator, TrendingUp, Hash, Settings2, Check, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ProcessedRaceData, RawRaceData } from '../types';
+import { Search, MapPin, Calendar, Timer, Trophy, Filter, Ruler, X, User, Users, Flag, ChevronRight, Calculator, TrendingUp, Hash, Settings2, Check, ArrowUp, ArrowDown, ArrowUpDown, FileText, Save, Edit3, Lock } from 'lucide-react';
 import { formatPace } from '../utils';
 
 interface PlacementRowProps {
@@ -51,9 +50,28 @@ const PlacementRow: React.FC<PlacementRowProps> = ({ label, value, icon: Icon })
 interface RaceDetailsModalProps {
   race: ProcessedRaceData;
   onClose: () => void;
+  onUpdate?: (id: string, data: Partial<RawRaceData>) => void;
+  readOnly?: boolean;
 }
 
-const RaceDetailsModal: React.FC<RaceDetailsModalProps> = ({ race, onClose }) => {
+const RaceDetailsModal: React.FC<RaceDetailsModalProps> = ({ race, onClose, onUpdate, readOnly = true }) => {
+  const [notes, setNotes] = useState(race.notes || '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    setHasChanges(notes !== (race.notes || ''));
+  }, [notes, race.notes]);
+
+  const handleSave = async () => {
+    if (onUpdate && hasChanges && !readOnly) {
+        setIsSaving(true);
+        await onUpdate(race.id, { notes });
+        setIsSaving(false);
+        setHasChanges(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -106,7 +124,7 @@ const RaceDetailsModal: React.FC<RaceDetailsModalProps> = ({ race, onClose }) =>
               <div className="flex flex-col items-center p-3 bg-slate-50 border border-slate-100 rounded-xl">
                  <span className="text-xs text-slate-500 uppercase font-bold mb-1">Distance</span>
                  <span className="text-lg font-bold text-slate-800">{race.distanceLabel}</span>
-                 <span className="text-[10px] text-slate-400">{race.distanceMiles} mi</span>
+                 <span className="text-xs text-slate-400">{race.distanceMiles} mi</span>
               </div>
            </div>
 
@@ -125,6 +143,53 @@ const RaceDetailsModal: React.FC<RaceDetailsModalProps> = ({ race, onClose }) =>
              </div>
            )}
 
+            {/* Notes Section - Conditional Edit */}
+            <div className="mb-2">
+                <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-bold text-slate-900 flex items-center">
+                        <FileText className="w-4 h-4 mr-2 text-slate-500" />
+                        Race Notes
+                    </h4>
+                    {!readOnly && hasChanges && (
+                        <button 
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="flex items-center space-x-1 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-full transition-colors animate-in fade-in"
+                        >
+                            <Save className="w-3 h-3" />
+                            <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
+                        </button>
+                    )}
+                </div>
+                
+                {readOnly ? (
+                  <div className={`w-full p-4 rounded-xl border ${notes ? 'bg-slate-50 border-slate-200' : 'bg-slate-50/50 border-slate-100 border-dashed text-center'}`}>
+                    {notes ? (
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{notes}</p>
+                    ) : (
+                      <p className="text-sm text-slate-400 italic">No notes recorded for this race.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="relative">
+                      <textarea 
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          placeholder="Add your memories, weather conditions, or race strategy here..."
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all min-h-[100px] resize-none"
+                      />
+                      {!notes && !hasChanges && (
+                          <div className="absolute top-3 right-3 text-slate-300 pointer-events-none">
+                              <Edit3 className="w-4 h-4" />
+                          </div>
+                      )}
+                      <p className="text-xs text-slate-400 mt-2 text-right">
+                        {hasChanges ? 'Unsaved changes' : 'Notes saved'}
+                      </p>
+                  </div>
+                )}
+            </div>
+
            {/* Additional Info */}
            <div className="flex justify-between items-center text-xs text-slate-400 pt-4 border-t border-slate-100">
               <div>ID: {race.id}</div>
@@ -138,9 +203,11 @@ const RaceDetailsModal: React.FC<RaceDetailsModalProps> = ({ race, onClose }) =>
 
 interface RaceListProps {
   data: ProcessedRaceData[];
+  onUpdateRace?: (id: string, data: Partial<RawRaceData>) => void;
+  isAdmin?: boolean;
 }
 
-const RaceList: React.FC<RaceListProps> = ({ data }) => {
+const RaceList: React.FC<RaceListProps> = ({ data, onUpdateRace, isAdmin = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedYear, setSelectedYear] = useState<string>('All');
@@ -158,7 +225,8 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
     location: true,
     time: true,
     pace: true,
-    placement: true
+    placement: true,
+    notes: true
   });
   const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
 
@@ -169,7 +237,8 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
     location: 'Location',
     time: 'Time',
     pace: 'Pace',
-    placement: 'Placement'
+    placement: 'Placement',
+    notes: 'Notes'
   };
 
   const toggleColumn = (key: keyof typeof visibleColumns) => {
@@ -194,7 +263,8 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
     const matchesSearch = 
       race.event.toLowerCase().includes(searchTerm.toLowerCase()) ||
       race.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      race.year.toString().includes(searchTerm);
+      race.year.toString().includes(searchTerm) ||
+      (race.notes && race.notes.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesCategory = selectedCategory === 'All' || race.category === selectedCategory;
     const matchesYear = selectedYear === 'All' || race.year.toString() === selectedYear;
@@ -222,6 +292,9 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
         } else if (sortConfig.key === 'date') {
            aValue = a.dateObj.getTime();
            bValue = b.dateObj.getTime();
+        } else if (sortConfig.key === 'notes') {
+            aValue = a.notes ? 1 : 0;
+            bValue = b.notes ? 1 : 0;
         }
 
         // Handle 0 values (missing data) - push to bottom for time/pace/distance
@@ -303,7 +376,7 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search events..."
+                placeholder="Search events, notes..."
                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -444,6 +517,9 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
                   </th>
                 )}
                 {visibleColumns.placement && <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Placement</th>}
+                {visibleColumns.notes && (
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Notes</th>
+                )}
                 <th className="px-4 py-4 w-10"></th>
               </tr>
             </thead>
@@ -509,6 +585,22 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
                       </div>
                     </td>
                   )}
+                  {visibleColumns.notes && (
+                    <td className="px-6 py-4">
+                      {race.notes ? (
+                          <div className="text-sm text-slate-600 truncate max-w-[150px]" title={race.notes}>
+                              {race.notes}
+                          </div>
+                      ) : (
+                          isAdmin ? (
+                            <span className="text-xs text-slate-300 italic group-hover:text-blue-400 flex items-center">
+                              <Edit3 className="w-3 h-3 mr-1" />
+                              Add note...
+                            </span>
+                          ) : null
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-4 text-right">
                     <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-400 transition-colors" />
                   </td>
@@ -540,6 +632,8 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
         <RaceDetailsModal 
           race={selectedRace} 
           onClose={() => setSelectedRace(null)} 
+          onUpdate={onUpdateRace}
+          readOnly={!isAdmin}
         />
       )}
     </>
