@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { ProcessedRaceData } from '../types';
-import { Search, MapPin, Calendar, Timer, Trophy, Filter, Ruler, X, User, Users, Flag, ChevronRight } from 'lucide-react';
+import { Search, MapPin, Calendar, Timer, Trophy, Filter, Ruler, X, User, Users, Flag, ChevronRight, Calculator, TrendingUp, Hash } from 'lucide-react';
+import { formatPace } from '../utils';
 
 interface PlacementRowProps {
   label: string;
@@ -163,6 +165,24 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
     return matchesSearch && matchesCategory && matchesYear;
   });
 
+  // Calculate Summary Stats based on filtered data
+  const summary = useMemo(() => {
+    if (filteredData.length === 0) return null;
+
+    const totalRaces = filteredData.length;
+    const totalMiles = filteredData.reduce((acc, r) => acc + r.distanceMiles, 0);
+    const racesWithPace = filteredData.filter(r => r.paceSeconds > 0);
+    const avgPaceSec = racesWithPace.length > 0 
+        ? racesWithPace.reduce((acc, r) => acc + r.paceSeconds, 0) / racesWithPace.length
+        : 0;
+
+    return {
+        count: totalRaces,
+        miles: totalMiles.toFixed(1),
+        pace: avgPaceSec > 0 ? formatPace(avgPaceSec) : '--:--'
+    };
+  }, [filteredData]);
+
   const visibleData = filteredData.slice(0, visibleCount);
 
   return (
@@ -214,6 +234,39 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
           </div>
         </div>
         
+        {/* Filtered Summary Bar */}
+        {summary && (
+            <div className="grid grid-cols-3 divide-x divide-slate-100 bg-slate-50 border-b border-slate-100">
+                <div className="px-4 py-3 flex flex-col items-center justify-center sm:flex-row sm:space-x-3">
+                    <div className="p-1.5 bg-blue-100 text-blue-600 rounded-md mb-1 sm:mb-0">
+                        <Hash className="w-4 h-4" />
+                    </div>
+                    <div className="text-center sm:text-left">
+                        <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Races</span>
+                        <span className="block text-sm font-bold text-slate-800">{summary.count}</span>
+                    </div>
+                </div>
+                <div className="px-4 py-3 flex flex-col items-center justify-center sm:flex-row sm:space-x-3">
+                    <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-md mb-1 sm:mb-0">
+                        <Ruler className="w-4 h-4" />
+                    </div>
+                    <div className="text-center sm:text-left">
+                        <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Distance</span>
+                        <span className="block text-sm font-bold text-slate-800">{summary.miles} mi</span>
+                    </div>
+                </div>
+                <div className="px-4 py-3 flex flex-col items-center justify-center sm:flex-row sm:space-x-3">
+                    <div className="p-1.5 bg-amber-100 text-amber-600 rounded-md mb-1 sm:mb-0">
+                        <TrendingUp className="w-4 h-4" />
+                    </div>
+                    <div className="text-center sm:text-left">
+                        <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Avg Pace</span>
+                        <span className="block text-sm font-bold text-slate-800">{summary.pace} /mi</span>
+                    </div>
+                </div>
+            </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-100">

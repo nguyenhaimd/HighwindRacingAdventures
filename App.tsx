@@ -12,7 +12,6 @@ import {
   SeasonalityRadarChart, 
   YearlyMileageChart,
   AveragePaceByDistanceChart,
-  YearlyProgressChart,
   MonthlyHeatmap,
   PaceDistributionChart
 } from './components/Charts';
@@ -20,6 +19,7 @@ import RaceList from './components/RaceList';
 import PersonalBests from './components/PersonalBests';
 import FunStats from './components/FunStats';
 import RaceMap from './components/RaceMap';
+import DistanceTable from './components/DistanceTable';
 import { RawRaceData } from './types';
 import AddRaceForm from './components/AddRaceForm';
 import { db } from './firebase';
@@ -186,18 +186,21 @@ const App: React.FC = () => {
         {/* Fun Stats Row */}
         <FunStats data={data} />
 
-        {/* Charts Grid 1 */}
+        {/* Race Count Table */}
+        <DistanceTable data={data} />
+
+        {/* Charts Grid 1: Personal Bests & Distribution */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
            <div className="lg:col-span-2">
-              <CumulativeMilesChart data={data} />
+              <PersonalBests data={data} />
            </div>
            <div>
               <DistanceDistributionChart data={data} />
            </div>
         </div>
 
-        {/* Strava Style Yearly Progress */}
-        <YearlyProgressChart data={data} />
+        {/* Cumulative Miles (Full Width) */}
+        <CumulativeMilesChart data={data} />
 
         {/* Charts Grid 2 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -205,7 +208,7 @@ const App: React.FC = () => {
            <YearlyMileageChart data={data} />
         </div>
 
-        {/* Map & Personal Bests */}
+        {/* Map & Seasonality */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
            <div className="lg:col-span-2">
               <RaceMap data={data} />
@@ -221,12 +224,11 @@ const App: React.FC = () => {
            <AveragePaceByDistanceChart data={data} />
         </div>
 
+        {/* Heatmap & Zones */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
            <MonthlyHeatmap data={data} />
            <PaceDistributionChart data={data} />
         </div>
-
-        <PersonalBests data={data} />
 
         {/* List */}
         <RaceList data={data} />
