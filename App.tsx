@@ -1,7 +1,8 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { RACE_DATA as INITIAL_RACE_DATA } from './data';
 import { processData } from './utils';
-import { Trophy, CalendarDays, Activity, Map, Timer, Zap, Plus, AlertCircle, Gauge, TrendingUp } from 'lucide-react';
+import { Trophy, Activity, Map as MapIcon, Zap, Plus, AlertCircle, Gauge } from 'lucide-react';
 import StatCard from './components/StatCard';
 import { 
   RacesPerYearChart, 
@@ -9,7 +10,6 @@ import {
   CumulativeMilesChart, 
   PerformanceScatterChart, 
   SeasonalityRadarChart, 
-  DistanceBarChart,
   YearlyMileageChart,
   AveragePaceByDistanceChart,
   YearlyProgressChart,
@@ -20,7 +20,7 @@ import RaceList from './components/RaceList';
 import PersonalBests from './components/PersonalBests';
 import FunStats from './components/FunStats';
 import RaceMap from './components/RaceMap';
-import { RaceCategory, RawRaceData } from './types';
+import { RawRaceData } from './types';
 import AddRaceForm from './components/AddRaceForm';
 import { db } from './firebase';
 import { collection, onSnapshot, addDoc, query } from 'firebase/firestore';
@@ -35,252 +35,203 @@ const App: React.FC = () => {
   useEffect(() => {
     if (db) {
       setIsFirebaseConnected(true);
-      // Query collection 'races', order by date is optional here as we sort in utils, but good practice
-      const q = query(collection(db, "races"));
-      
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const firebaseRaces = snapshot.docs.map(doc => doc.data() as RawRaceData);
+      try {
+        const q = query(collection(db, "races"));
         
-        if (firebaseRaces.length > 0) {
-          setRawData(firebaseRaces);
-        }
-        setIsLoading(false);
-      }, (error) => {
-        console.error("Failed to fetch races from Firebase:", error);
-        setIsLoading(false); 
-      });
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const firebaseRaces = snapshot.docs.map(doc => doc.data() as RawRaceData);
+          if (firebaseRaces.length > 0) {
+            setRawData(firebaseRaces);
+          }
+          setIsLoading(false);
+        }, (error) => {
+          console.error("Failed to fetch races from Firebase:", error);
+          setIsLoading(false); 
+        });
 
-      return () => unsubscribe();
+        return () => unsubscribe();
+      } catch (err) {
+        console.error("Error setting up Firebase listener:", err);
+        setIsLoading(false);
+      }
     } else {
-      setIsLoading(false);
-      setIsFirebaseConnected(false);
+      // Simulate loading for demo data
+      const timer = setTimeout(() => setIsLoading(false), 500);
+      return () => clearTimeout(timer);
     }
   }, []);
 
-  const data = useMemo(() => processData(rawData), [rawData]);
+  const data = useMemo(() => {
+    try {
+      return processData(rawData);
+    } catch (e) {
+      console.error("Error processing data:", e);
+      return [];
+    }
+  }, [rawData]);
 
   const stats = useMemo(() => {
+    if (data.length === 0) return { totalRaces: 0, totalMiles: 0, avgDistance: 0, avgPace: '--:--' };
+
     const totalRaces = data.length;
+    const totalMiles = data.reduce((acc, curr) => acc + curr.distanceMiles, 0);
+    const avgDistance = totalRaces > 0 ? totalMiles / totalRaces : 0;
+    const validPaceRaces = data.filter(r => r.paceSeconds > 0).length;
+    const avgPaceSeconds = validPaceRaces > 0 
+      ? data.reduce((acc, curr) => acc + curr.paceSeconds, 0) / validPaceRaces 
+      : 0;
     
-    const totalMiles = data.reduce((acc, race) => acc + race.distanceMiles, 0);
-
-    // Guard against empty data
-    if (totalRaces === 0) {
-        return {
-            totalRaces: 0,
-            totalMiles: 0,
-            yearsRange: 'N/A',
-            marathonPB: 'N/A',
-            marathonPBDate: '',
-            halfPB: 'N/A',
-            fastestPace: 'N/A',
-            fastestPaceMeta: ''
-        };
-    }
-
-    const years = data.map(r => r.year);
-    const minYear = Math.min(...years);
-    const maxYear = Math.max(...years);
-
-    const marathons = data.filter(r => r.category === RaceCategory.MARATHON && r.totalMinutes > 0);
-    const marathonPB = marathons.sort((a, b) => a.totalMinutes - b.totalMinutes)[0];
-
-    const halfs = data.filter(r => r.category === RaceCategory.HALF && r.totalMinutes > 0);
-    const halfPB = halfs.sort((a, b) => a.totalMinutes - b.totalMinutes)[0];
-
-    const racesWithPace = data.filter(r => r.paceSeconds > 0);
-    const fastestRace = racesWithPace.sort((a, b) => a.paceSeconds - b.paceSeconds)[0];
-
     return {
       totalRaces,
-      totalMiles: Math.round(totalMiles),
-      yearsRange: `${minYear} - ${maxYear}`,
-      marathonPB: marathonPB ? marathonPB.time : 'N/A',
-      marathonPBDate: marathonPB ? marathonPB.year : '',
-      halfPB: halfPB ? halfPB.time : 'N/A',
-      fastestPace: fastestRace ? fastestRace.pace : 'N/A',
-      fastestPaceMeta: fastestRace ? `${fastestRace.event} (${fastestRace.date})` : ''
+      totalMiles: totalMiles.toFixed(1),
+      avgDistance: avgDistance.toFixed(1),
+      avgPace: avgPaceSeconds > 0 
+        ? new Date(avgPaceSeconds * 1000).toISOString().substr(14, 5) 
+        : '--:--'
     };
   }, [data]);
 
   const handleAddRace = async (newRace: RawRaceData) => {
     if (db) {
-      try {
-        await addDoc(collection(db, "races"), newRace);
-      } catch (e) {
-        console.error("Error adding document: ", e);
-        alert("Failed to save to database. Check console for details.");
-        // Optimistic update
-        setRawData(prev => [newRace, ...prev]);
-      }
+        try {
+            await addDoc(collection(db, "races"), newRace);
+        } catch (e) {
+            console.error("Error adding document: ", e);
+            // Fallback to local state if firebase write fails (or just let user know)
+            setRawData(prev => [newRace, ...prev]);
+        }
     } else {
-      // Local state update only
-      setRawData(prev => [newRace, ...prev]);
+        setRawData(prev => [newRace, ...prev]);
     }
   };
 
+  if (isLoading) {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="flex flex-col items-center">
+                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p className="text-slate-500 font-medium">Loading Racing Data...</p>
+            </div>
+        </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-12 font-sans relative">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-12">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm backdrop-blur-md bg-opacity-90">
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 p-2 rounded-lg text-white shadow-md">
-              <Activity className="w-5 h-5" />
-            </div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">HighWind's Racing Adventures</h1>
+             <div className="bg-blue-600 p-2 rounded-lg">
+                <Activity className="w-5 h-5 text-white" />
+             </div>
+             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-700 hidden sm:block">
+               HighWind's Racing Adventures
+             </h1>
+             <h1 className="text-xl font-bold text-slate-800 sm:hidden">Racing Log</h1>
           </div>
-          <div className="flex items-center space-x-4">
-             {!isFirebaseConnected && (
-               <div className="hidden md:flex items-center text-xs text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
-                  <AlertCircle className="w-3 h-3 mr-1.5" />
-                  Demo Mode (Local Data)
-               </div>
-             )}
-             <div className="hidden sm:flex items-center text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-              <CalendarDays className="w-4 h-4 mr-2 text-slate-400" />
-              {stats.yearsRange}
-            </div>
+          
+          <div className="flex items-center space-x-3">
+            {!isFirebaseConnected && (
+                <div className="hidden md:flex items-center text-xs text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
+                    <AlertCircle className="w-3 h-3 mr-1.5" />
+                    Demo Mode
+                </div>
+            )}
             <button 
               onClick={() => setShowAddForm(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full shadow-md transition-colors flex items-center justify-center"
-              title="Log new race"
+              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm active:transform active:scale-95"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
+              <span>Log Race</span>
             </button>
           </div>
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         
-        {/* Hero / Stats Row */}
-        <div>
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-6">
-            <div>
-               <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Runner Dashboard</h2>
-               <p className="text-slate-500 mt-1">Career visualization & performance analytics</p>
-            </div>
-            <div className="hidden md:block">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                {isLoading ? 'Loading...' : (isFirebaseConnected ? 'Live Database' : 'Static Demo Data')}
-              </span>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-            <StatCard 
-              label="Fastest Pace" 
-              value={stats.fastestPace !== 'N/A' ? `${stats.fastestPace}/mi` : 'N/A'} 
-              subValue={stats.fastestPaceMeta}
-              icon={Gauge} 
-              colorClass="text-rose-500 bg-rose-500" 
-            />
-            <StatCard 
-              label="Marathon PB" 
-              value={stats.marathonPB} 
-              subValue={stats.marathonPBDate ? `Set in ${stats.marathonPBDate}` : ''}
-              icon={Trophy} 
-              colorClass="text-yellow-500 bg-yellow-500" 
-            />
-            <StatCard 
-              label="Half Marathon PB" 
-              value={stats.halfPB} 
-              subValue="Fastest 13.1 time" 
-              icon={Timer} 
-              colorClass="text-emerald-500 bg-emerald-500" 
-            />
-            <StatCard 
-              label="Total Miles" 
-              value={stats.totalMiles.toLocaleString()} 
-              subValue="Race distance covered" 
-              icon={Map} 
-              colorClass="text-blue-500 bg-blue-500" 
-            />
-            <StatCard 
-              label="Races Completed" 
-              value={stats.totalRaces} 
-              subValue="Across all distances" 
-              icon={Zap} 
-              colorClass="text-indigo-500 bg-indigo-500" 
-            />
-          </div>
+        {/* Key Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard 
+            label="Total Races" 
+            value={stats.totalRaces} 
+            icon={Trophy} 
+            colorClass="bg-blue-500" 
+            subValue="Across all distances"
+          />
+          <StatCard 
+            label="Total Miles" 
+            value={stats.totalMiles} 
+            icon={Gauge} 
+            colorClass="bg-indigo-500" 
+            subValue="Lifetime racing mileage"
+          />
+          <StatCard 
+            label="Avg Distance" 
+            value={stats.avgDistance} 
+            icon={MapIcon} 
+            colorClass="bg-emerald-500" 
+            subValue="Miles per race"
+          />
+          <StatCard 
+            label="Avg Pace" 
+            value={`${stats.avgPace}/mi`} 
+            icon={Zap} 
+            colorClass="bg-amber-500" 
+            subValue="All time average"
+          />
         </div>
 
         {/* Fun Stats Row */}
         <FunStats data={data} />
 
-        {/* Personal Bests Section */}
+        {/* Charts Grid 1 */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+           <div className="lg:col-span-2">
+              <CumulativeMilesChart data={data} />
+           </div>
+           <div>
+              <DistanceDistributionChart data={data} />
+           </div>
+        </div>
+
+        {/* Strava Style Yearly Progress */}
+        <YearlyProgressChart data={data} />
+
+        {/* Charts Grid 2 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+           <RacesPerYearChart data={data} />
+           <YearlyMileageChart data={data} />
+        </div>
+
+        {/* Map & Personal Bests */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+           <div className="lg:col-span-2">
+              <RaceMap data={data} />
+           </div>
+           <div>
+              <SeasonalityRadarChart data={data} />
+           </div>
+        </div>
+
+        {/* Performance Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+           <PerformanceScatterChart data={data} />
+           <AveragePaceByDistanceChart data={data} />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+           <MonthlyHeatmap data={data} />
+           <PaceDistributionChart data={data} />
+        </div>
+
         <PersonalBests data={data} />
 
-        {/* Main Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-           <div className="lg:col-span-2">
-              <PerformanceScatterChart data={data} />
-           </div>
-           <div className="lg:col-span-1">
-              <DistanceBarChart data={data} />
-           </div>
-        </div>
-
-        {/* Map & Secondary Charts */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="md:col-span-2">
-               <RaceMap data={data} />
-            </div>
-        </div>
-
-        {/* New Training Trends Section */}
-        <div className="space-y-6">
-          <h3 className="text-xl font-bold text-slate-800 flex items-center">
-            <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
-            Training & Consistency Trends
-          </h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <YearlyProgressChart data={data} />
-              <MonthlyHeatmap data={data} />
-          </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <PaceDistributionChart data={data} />
-              <YearlyMileageChart data={data} />
-           </div>
-        </div>
-
-        {/* New Analytics Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <AveragePaceByDistanceChart data={data} />
-        </div>
-
-        {/* Secondary Charts Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1">
-            <SeasonalityRadarChart data={data} />
-          </div>
-          <div className="lg:col-span-1">
-             <RacesPerYearChart data={data} />
-          </div>
-          <div className="lg:col-span-1">
-             <DistanceDistributionChart data={data} />
-          </div>
-        </div>
-
-        {/* Tertiary Chart */}
-        <div className="grid grid-cols-1 gap-8">
-           <CumulativeMilesChart data={data} />
-        </div>
-
-        {/* Detailed List */}
-        <div className="pt-4">
-           <RaceList data={data} />
-        </div>
+        {/* List */}
+        <RaceList data={data} />
 
       </main>
-
-      <footer className="bg-white border-t border-slate-200 py-10 mt-12">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-slate-500 text-sm">&copy; {new Date().getFullYear()} HighWind's Racing Adventures. Created with React & Recharts.</p>
-        </div>
-      </footer>
 
       {showAddForm && (
         <AddRaceForm 

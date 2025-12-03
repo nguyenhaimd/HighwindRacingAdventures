@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { ProcessedRaceData } from '../types';
 import { getCoordinates } from '../utils';
@@ -33,63 +34,76 @@ const RaceMap: React.FC<RaceMapProps> = ({ data }) => {
     return Object.values(groups);
   }, [data]);
 
+  // Effect 1: Initialize Map (Runs once)
   useEffect(() => {
-    if (mapContainerRef.current && !mapInstanceRef.current) {
-      // Initialize map centered on Mid-Atlantic (roughly Washington DC area)
-      mapInstanceRef.current = L.map(mapContainerRef.current).setView([38.9072, -77.0369], 7);
+    if (!mapContainerRef.current) return;
 
-      // Add a nice minimal tile layer (CartoDB Positron)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 19
-      }).addTo(mapInstanceRef.current);
+    // Safety check: Clean up any existing map instance on this node
+    const container = mapContainerRef.current as any;
+    if (container._leaflet_id) {
+       container._leaflet_id = null;
+       container.innerHTML = '';
     }
 
-    // Clear existing layers if data updates
-    if (mapInstanceRef.current) {
-        // Remove old markers (simple loop approach, or we could use a LayerGroup)
-        mapInstanceRef.current.eachLayer((layer: any) => {
-            if (layer instanceof L.CircleMarker || layer instanceof L.Marker) {
-                mapInstanceRef.current?.removeLayer(layer);
-            }
-        });
+    // Initialize map
+    const map = L.map(mapContainerRef.current).setView([38.9072, -77.0369], 7);
+    
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map);
 
-        // Add Markers
-        locationGroups.forEach(loc => {
-            const size = Math.min(30, 8 + (loc.count * 1.5)); // Dynamic size based on race count
-            
-            const circle = L.circleMarker(loc.coords, {
-                color: '#3b82f6', // Blue border
-                fillColor: '#60a5fa', // Light blue fill
-                fillOpacity: 0.6,
-                radius: size,
-                weight: 2
-            }).addTo(mapInstanceRef.current!);
-
-            // Create popup content
-            const raceList = loc.races.slice(0, 5).map(r => `<li>${r.year}: ${r.event}</li>`).join('');
-            const remaining = loc.races.length > 5 ? `<li>...and ${loc.races.length - 5} more</li>` : '';
-            
-            const popupContent = `
-                <div style="font-family: 'Inter', sans-serif;">
-                    <strong style="font-size: 14px; color: #1e293b;">${loc.races[0].location}</strong>
-                    <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">${loc.count} Race${loc.count > 1 ? 's' : ''}</div>
-                    <ul style="font-size: 11px; padding-left: 14px; color: #475569; max-height: 100px; overflow-y: auto;">
-                        ${raceList}
-                        ${remaining}
-                    </ul>
-                </div>
-            `;
-
-            circle.bindPopup(popupContent);
-        });
-    }
+    mapInstanceRef.current = map;
 
     // Cleanup on unmount
     return () => {
-        // We typically don't destroy the map in React 18 strict mode dev to avoid flashes
+      map.remove();
+      mapInstanceRef.current = null;
     };
+  }, []);
+
+  // Effect 2: Update Markers (Runs when data changes)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // Remove existing marker layers
+    map.eachLayer((layer: any) => {
+        if (layer instanceof L.CircleMarker || layer instanceof L.Marker) {
+            map.removeLayer(layer);
+        }
+    });
+
+    // Add new markers
+    locationGroups.forEach(loc => {
+        const size = Math.min(30, 8 + (loc.count * 1.5)); // Dynamic size based on race count
+        
+        const circle = L.circleMarker(loc.coords, {
+            color: '#3b82f6', // Blue border
+            fillColor: '#60a5fa', // Light blue fill
+            fillOpacity: 0.6,
+            radius: size,
+            weight: 2
+        }).addTo(map);
+
+        // Create popup content
+        const raceList = loc.races.slice(0, 5).map(r => `<li>${r.year}: ${r.event}</li>`).join('');
+        const remaining = loc.races.length > 5 ? `<li>...and ${loc.races.length - 5} more</li>` : '';
+        
+        const popupContent = `
+            <div style="font-family: 'Inter', sans-serif;">
+                <strong style="font-size: 14px; color: #1e293b;">${loc.races[0].location}</strong>
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">${loc.count} Race${loc.count > 1 ? 's' : ''}</div>
+                <ul style="font-size: 11px; padding-left: 14px; color: #475569; max-height: 100px; overflow-y: auto;">
+                    ${raceList}
+                    ${remaining}
+                </ul>
+            </div>
+        `;
+
+        circle.bindPopup(popupContent);
+    });
 
   }, [locationGroups]);
 
