@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { ProcessedRaceData } from '../types';
-import { Search, MapPin, Calendar, Timer, Trophy, Filter, Ruler, X, User, Users, Flag, ChevronRight, Calculator, TrendingUp, Hash } from 'lucide-react';
+import { Search, MapPin, Calendar, Timer, Trophy, Filter, Ruler, X, User, Users, Flag, ChevronRight, Calculator, TrendingUp, Hash, Settings2, Check, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { formatPace } from '../utils';
 
 interface PlacementRowProps {
@@ -147,6 +147,43 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
   const [visibleCount, setVisibleCount] = useState(20);
   const [selectedRace, setSelectedRace] = useState<ProcessedRaceData | null>(null);
 
+  // Sorting State
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+  // Column Visibility State
+  const [visibleColumns, setVisibleColumns] = useState({
+    date: true,
+    event: true,
+    distance: true,
+    location: true,
+    time: true,
+    pace: true,
+    placement: true
+  });
+  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+
+  const columnLabels: Record<string, string> = {
+    date: 'Date',
+    event: 'Event',
+    distance: 'Distance',
+    location: 'Location',
+    time: 'Time',
+    pace: 'Pace',
+    placement: 'Placement'
+  };
+
+  const toggleColumn = (key: keyof typeof visibleColumns) => {
+    setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
   // Get unique categories for filter
   const categories = ['All', ...Array.from(new Set(data.map(d => d.category)))].sort();
 
@@ -165,7 +202,48 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
     return matchesSearch && matchesCategory && matchesYear;
   });
 
-  // Calculate Summary Stats based on filtered data
+  const sortedData = useMemo(() => {
+    let items = [...filteredData];
+    if (sortConfig !== null) {
+      items.sort((a, b) => {
+        let aValue: number | string = 0;
+        let bValue: number | string = 0;
+
+        // Determine values based on key
+        if (sortConfig.key === 'distance') {
+           aValue = a.distanceMiles;
+           bValue = b.distanceMiles;
+        } else if (sortConfig.key === 'time') {
+           aValue = a.totalMinutes;
+           bValue = b.totalMinutes;
+        } else if (sortConfig.key === 'pace') {
+           aValue = a.paceSeconds;
+           bValue = b.paceSeconds;
+        } else if (sortConfig.key === 'date') {
+           aValue = a.dateObj.getTime();
+           bValue = b.dateObj.getTime();
+        }
+
+        // Handle 0 values (missing data) - push to bottom for time/pace/distance
+        const isNumericSort = ['distance', 'time', 'pace'].includes(sortConfig.key);
+        if (isNumericSort) {
+            if (aValue === 0 && bValue !== 0) return 1;
+            if (aValue !== 0 && bValue === 0) return -1;
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return items;
+  }, [filteredData, sortConfig]);
+
+  // Calculate Summary Stats based on filtered data (not sorted)
   const summary = useMemo(() => {
     if (filteredData.length === 0) return null;
 
@@ -183,7 +261,7 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
     };
   }, [filteredData]);
 
-  const visibleData = filteredData.slice(0, visibleCount);
+  const visibleData = sortedData.slice(0, visibleCount);
 
   return (
     <>
@@ -191,14 +269,14 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
         <div className="p-6 border-b border-slate-100 flex flex-col lg:flex-row justify-between items-center gap-4">
           <h3 className="text-xl font-bold text-slate-800">Race History Log</h3>
           
-          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto items-center">
             {/* Year Filter */}
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="w-full sm:w-40 pl-10 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all appearance-none cursor-pointer text-slate-700 font-medium"
+                className="w-full sm:w-36 pl-10 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all appearance-none cursor-pointer text-slate-700 font-medium"
               >
                 {years.map(year => (
                   <option key={year} value={year}>{year === 'All' ? 'All Years' : year}</option>
@@ -207,12 +285,12 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
             </div>
 
             {/* Category Filter */}
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full sm:w-48 pl-10 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all appearance-none cursor-pointer text-slate-700 font-medium"
+                className="w-full sm:w-44 pl-10 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all appearance-none cursor-pointer text-slate-700 font-medium"
               >
                 {categories.map(cat => (
                   <option key={cat} value={cat}>{cat === 'All' ? 'All Distances' : cat}</option>
@@ -221,7 +299,7 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
             </div>
 
             {/* Search Input */}
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full sm:w-60">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input
                 type="text"
@@ -231,6 +309,38 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+
+            {/* Column Visibility Toggle */}
+            <div className="relative">
+                <button 
+                  onClick={() => setIsColumnMenuOpen(!isColumnMenuOpen)}
+                  className="p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-white hover:border-blue-300 transition-all shadow-sm"
+                  title="Customize Columns"
+                >
+                  <Settings2 className="w-4 h-4" />
+                </button>
+
+                {isColumnMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsColumnMenuOpen(false)}></div>
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-20 p-2 animate-in fade-in zoom-in-95 duration-200">
+                      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 py-1 mb-1">Visible Columns</div>
+                      {Object.entries(visibleColumns).map(([key, isVisible]) => (
+                        <button
+                          key={key}
+                          onClick={() => toggleColumn(key as keyof typeof visibleColumns)}
+                          className="w-full flex items-center justify-between px-2 py-1.5 text-sm rounded-md hover:bg-slate-50 transition-colors group"
+                        >
+                          <span className={`font-medium ${isVisible ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                            {columnLabels[key]}
+                          </span>
+                          {isVisible && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+             </div>
           </div>
         </div>
         
@@ -271,13 +381,69 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Event</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Distance</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Location</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Time</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Pace</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Placement</th>
+                {visibleColumns.date && (
+                  <th 
+                    className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                    onClick={() => handleSort('date')}
+                  >
+                    <div className="flex items-center">
+                      Date
+                      {sortConfig?.key === 'date' ? (
+                        sortConfig.direction === 'asc' ? <ArrowUp className="w-3.5 h-3.5 ml-1 text-blue-600" /> : <ArrowDown className="w-3.5 h-3.5 ml-1 text-blue-600" />
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 ml-1 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                      )}
+                    </div>
+                  </th>
+                )}
+                {visibleColumns.event && <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Event</th>}
+                {visibleColumns.distance && (
+                  <th 
+                    className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                    onClick={() => handleSort('distance')}
+                  >
+                     <div className="flex items-center">
+                      Distance
+                      {sortConfig?.key === 'distance' ? (
+                        sortConfig.direction === 'asc' ? <ArrowUp className="w-3.5 h-3.5 ml-1 text-blue-600" /> : <ArrowDown className="w-3.5 h-3.5 ml-1 text-blue-600" />
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 ml-1 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                      )}
+                    </div>
+                  </th>
+                )}
+                {visibleColumns.location && <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Location</th>}
+                {visibleColumns.time && (
+                  <th 
+                    className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                    onClick={() => handleSort('time')}
+                  >
+                     <div className="flex items-center">
+                      Time
+                      {sortConfig?.key === 'time' ? (
+                        sortConfig.direction === 'asc' ? <ArrowUp className="w-3.5 h-3.5 ml-1 text-blue-600" /> : <ArrowDown className="w-3.5 h-3.5 ml-1 text-blue-600" />
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 ml-1 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                      )}
+                    </div>
+                  </th>
+                )}
+                {visibleColumns.pace && (
+                   <th 
+                    className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                    onClick={() => handleSort('pace')}
+                  >
+                     <div className="flex items-center">
+                      Pace
+                      {sortConfig?.key === 'pace' ? (
+                        sortConfig.direction === 'asc' ? <ArrowUp className="w-3.5 h-3.5 ml-1 text-blue-600" /> : <ArrowDown className="w-3.5 h-3.5 ml-1 text-blue-600" />
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 ml-1 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                      )}
+                    </div>
+                  </th>
+                )}
+                {visibleColumns.placement && <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Placement</th>}
                 <th className="px-4 py-4 w-10"></th>
               </tr>
             </thead>
@@ -288,47 +454,61 @@ const RaceList: React.FC<RaceListProps> = ({ data }) => {
                   onClick={() => setSelectedRace(race)}
                   className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <Calendar className="w-4 h-4 text-slate-400 mr-2" />
-                      <span className="text-sm font-medium text-slate-700">{race.date}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm font-semibold text-slate-800 block">{race.event}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col items-start">
-                      <span className="text-xs text-blue-700 font-semibold px-2 py-0.5 bg-blue-50 rounded border border-blue-100 mb-1">
-                        {race.distanceLabel}
-                      </span>
-                      <span className="text-xs text-slate-500 flex items-center" title="Distance in miles">
-                        <Ruler className="w-3 h-3 mr-1 text-slate-400" />
-                        {race.distanceMiles} mi
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 hidden md:table-cell">
-                    <div className="flex items-center text-sm text-slate-500">
-                      <MapPin className="w-4 h-4 text-slate-400 mr-1" />
-                      {race.location}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                     <div className="flex items-center text-sm font-bold text-slate-700">
-                      <Timer className="w-4 h-4 text-slate-400 mr-2" />
-                      {race.time}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                    {race.pace}/mi
-                  </td>
-                  <td className="px-6 py-4 hidden lg:table-cell">
-                     <div className="flex flex-col text-xs text-slate-500">
-                       <span className="flex items-center"><Trophy className="w-3 h-3 mr-1 text-amber-500"/> OA: {race.overall}</span>
-                       <span>Div: {race.division}</span>
-                     </div>
-                  </td>
+                  {visibleColumns.date && (
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <Calendar className="w-4 h-4 text-slate-400 mr-2" />
+                        <span className="text-sm font-medium text-slate-700">{race.date}</span>
+                      </div>
+                    </td>
+                  )}
+                  {visibleColumns.event && (
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-semibold text-slate-800 block">{race.event}</span>
+                    </td>
+                  )}
+                  {visibleColumns.distance && (
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col items-start">
+                        <span className="text-xs text-blue-700 font-semibold px-2 py-0.5 bg-blue-50 rounded border border-blue-100 mb-1">
+                          {race.distanceLabel}
+                        </span>
+                        <span className="text-xs text-slate-500 flex items-center" title="Distance in miles">
+                          <Ruler className="w-3 h-3 mr-1 text-slate-400" />
+                          {race.distanceMiles} mi
+                        </span>
+                      </div>
+                    </td>
+                  )}
+                  {visibleColumns.location && (
+                    <td className="px-6 py-4">
+                      <div className="flex items-center text-sm text-slate-500">
+                        <MapPin className="w-4 h-4 text-slate-400 mr-1" />
+                        {race.location}
+                      </div>
+                    </td>
+                  )}
+                  {visibleColumns.time && (
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center text-sm font-bold text-slate-700">
+                        <Timer className="w-4 h-4 text-slate-400 mr-2" />
+                        {race.time}
+                      </div>
+                    </td>
+                  )}
+                  {visibleColumns.pace && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                      {race.pace}/mi
+                    </td>
+                  )}
+                  {visibleColumns.placement && (
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col text-xs text-slate-500">
+                        <span className="flex items-center"><Trophy className="w-3 h-3 mr-1 text-amber-500"/> OA: {race.overall}</span>
+                        <span>Div: {race.division}</span>
+                      </div>
+                    </td>
+                  )}
                   <td className="px-4 py-4 text-right">
                     <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-400 transition-colors" />
                   </td>
