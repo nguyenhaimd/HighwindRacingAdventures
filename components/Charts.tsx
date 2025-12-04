@@ -231,7 +231,7 @@ export const PerformanceScatterChart: React.FC<ChartsProps> = ({ data }) => {
               name="Date"
               type="number"
               domain={['dataMin', 'dataMax']}
-              tickFormatter={(unixTime: number) => new Date(unixTime).getFullYear().toString()}
+              tickFormatter={(unixTime: any) => new Date(unixTime).getFullYear().toString()}
               tick={{ fill: '#64748b', fontSize: 12 }} 
               axisLine={false} 
               tickLine={false}
@@ -397,7 +397,7 @@ export const AveragePaceByDistanceChart: React.FC<ChartsProps> = ({ data }) => {
             />
             <Tooltip 
               cursor={{ fill: '#f1f5f9' }}
-              formatter={(val: number) => [formatPace(val) + '/mi', 'Avg Pace']}
+              formatter={(val: any) => [formatPace(val) + '/mi', 'Avg Pace']}
               contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
             />
             <Bar dataKey="avgPace" fill="#10b981" radius={[4, 4, 0, 0]} name="Avg Pace (min/mi)" />
@@ -469,7 +469,7 @@ export const YearlyProgressChart: React.FC<ChartsProps> = ({ data }) => {
               type="number"
               domain={[1, 366]}
               ticks={monthTicks}
-              tickFormatter={(val: number) => {
+              tickFormatter={(val: any) => {
                 const d = new Date(2023, 0, val);
                 return d.toLocaleString('default', { month: 'short' });
               }}

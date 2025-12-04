@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ProcessedRaceData, RawRaceData } from '../types';
-import { Search, MapPin, Calendar, Timer, Trophy, Filter, Ruler, X, User, Users, Flag, ChevronRight, Calculator, TrendingUp, Hash, Settings2, Check, ArrowUp, ArrowDown, ArrowUpDown, FileText, Save, Edit3, Lock } from 'lucide-react';
+import { ProcessedRaceData, RawRaceData, RaceCategory } from '../types';
+import { Search, MapPin, Calendar, Timer, Trophy, Filter, Ruler, X, User, Users, Flag, ChevronRight, Hash, Settings2, Check, ArrowUp, ArrowDown, ArrowUpDown, FileText, Save, Edit3, Lock, AlertCircle, TrendingUp } from 'lucide-react';
 import { formatPace } from '../utils';
 
 interface PlacementRowProps {
@@ -55,20 +55,68 @@ interface RaceDetailsModalProps {
 }
 
 const RaceDetailsModal: React.FC<RaceDetailsModalProps> = ({ race, onClose, onUpdate, readOnly = true }) => {
-  const [notes, setNotes] = useState(race.notes || '');
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<Partial<RawRaceData>>({
+    year: race.year,
+    event: race.event,
+    date: race.date,
+    location: race.location,
+    time: race.time,
+    pace: race.pace,
+    overall: race.overall,
+    gender: race.gender,
+    division: race.division,
+    notes: race.notes || '',
+    distanceType: race.distanceType || ''
+  });
 
+  // Reset form data if race changes
   useEffect(() => {
-    setHasChanges(notes !== (race.notes || ''));
-  }, [notes, race.notes]);
+    setFormData({
+        year: race.year,
+        event: race.event,
+        date: race.date,
+        location: race.location,
+        time: race.time,
+        pace: race.pace,
+        overall: race.overall,
+        gender: race.gender,
+        division: race.division,
+        notes: race.notes || '',
+        distanceType: race.distanceType || ''
+    });
+  }, [race]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const handleSave = async () => {
-    if (onUpdate && hasChanges && !readOnly) {
-        setIsSaving(true);
-        await onUpdate(race.id, { notes });
-        setIsSaving(false);
-        setHasChanges(false);
+    if (onUpdate) {
+        await onUpdate(race.id, formData);
+        setIsEditing(false);
+    }
+  };
+
+  const toggleEdit = () => {
+    if (isEditing) {
+        // Cancel logic: reset form
+        setFormData({
+            year: race.year,
+            event: race.event,
+            date: race.date,
+            location: race.location,
+            time: race.time,
+            pace: race.pace,
+            overall: race.overall,
+            gender: race.gender,
+            division: race.division,
+            notes: race.notes || '',
+            distanceType: race.distanceType || ''
+        });
+        setIsEditing(false);
+    } else {
+        setIsEditing(true);
     }
   };
 
@@ -85,116 +133,253 @@ const RaceDetailsModal: React.FC<RaceDetailsModalProps> = ({ race, onClose, onUp
         
         {/* Header */}
         <div className="relative bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white shrink-0">
-           <button 
-             onClick={onClose} 
-             className="absolute top-4 right-4 p-1 text-blue-100 hover:text-white hover:bg-white/10 rounded-full transition-colors"
-           >
-             <X className="w-6 h-6" />
-           </button>
-           
-           <div className="pr-8">
-             <div className="flex items-center space-x-2 text-blue-100 text-sm font-medium mb-2">
-                <Calendar className="w-4 h-4" />
-                <span>{race.date}</span>
-                <span>•</span>
-                <span>{race.year}</span>
-             </div>
-             <h3 className="text-2xl font-bold leading-tight">{race.event}</h3>
-             <div className="flex items-center mt-3 text-blue-100 text-sm">
-               <MapPin className="w-4 h-4 mr-1.5 shrink-0" />
-               <span className="truncate">{race.location}</span>
-             </div>
+           <div className="absolute top-4 right-4 flex space-x-2">
+               {!readOnly && (
+                   <button 
+                       onClick={toggleEdit}
+                       className="p-1 text-blue-100 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+                       title={isEditing ? "Cancel Editing" : "Edit Race"}
+                   >
+                       {isEditing ? <X className="w-6 h-6" /> : <Edit3 className="w-5 h-5" />}
+                   </button>
+               )}
+               <button 
+                 onClick={onClose} 
+                 className="p-1 text-blue-100 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+               >
+                 <X className="w-6 h-6" />
+               </button>
            </div>
+           
+           {!isEditing ? (
+               <div className="pr-8">
+                 <div className="flex items-center space-x-2 text-blue-100 text-sm font-medium mb-2">
+                    <Calendar className="w-4 h-4" />
+                    <span>{race.date}</span>
+                    <span>•</span>
+                    <span>{race.year}</span>
+                 </div>
+                 <h3 className="text-2xl font-bold leading-tight">{race.event}</h3>
+                 <div className="flex items-center mt-3 text-blue-100 text-sm">
+                   <MapPin className="w-4 h-4 mr-1.5 shrink-0" />
+                   <span className="truncate">{race.location}</span>
+                 </div>
+               </div>
+           ) : (
+               <div className="pr-8">
+                   <h3 className="text-xl font-bold">Edit Race Details</h3>
+                   <p className="text-blue-100 text-sm opacity-90">Update information for this event</p>
+               </div>
+           )}
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-6 overflow-y-auto custom-scrollbar">
+        <div className="p-6 overflow-y-auto custom-scrollbar flex-grow">
            
-           {/* Primary Stats */}
-           <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="flex flex-col items-center p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                 <span className="text-xs text-slate-500 uppercase font-bold mb-1">Time</span>
-                 <span className="text-lg font-bold text-slate-800 font-mono">{race.time}</span>
-              </div>
-              <div className="flex flex-col items-center p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                 <span className="text-xs text-slate-500 uppercase font-bold mb-1">Pace</span>
-                 <span className="text-lg font-bold text-slate-800 font-mono">{race.pace}</span>
-                 <span className="text-[10px] text-slate-400">/mi</span>
-              </div>
-              <div className="flex flex-col items-center p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                 <span className="text-xs text-slate-500 uppercase font-bold mb-1">Distance</span>
-                 <span className="text-lg font-bold text-slate-800">{race.distanceLabel}</span>
-                 <span className="text-xs text-slate-400">{race.distanceMiles} mi</span>
-              </div>
-           </div>
+           {!isEditing ? (
+               // --- VIEW MODE ---
+               <>
+                   {/* Primary Stats */}
+                   <div className="grid grid-cols-3 gap-4 mb-6">
+                      <div className="flex flex-col items-center p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                         <span className="text-xs text-slate-500 uppercase font-bold mb-1">Time</span>
+                         <span className="text-lg font-bold text-slate-800 font-mono">{race.time}</span>
+                      </div>
+                      <div className="flex flex-col items-center p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                         <span className="text-xs text-slate-500 uppercase font-bold mb-1">Pace</span>
+                         <span className="text-lg font-bold text-slate-800 font-mono">{race.pace}</span>
+                         <span className="text-[10px] text-slate-400">/mi</span>
+                      </div>
+                      <div className="flex flex-col items-center p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                         <span className="text-xs text-slate-500 uppercase font-bold mb-1">Distance</span>
+                         <span className="text-lg font-bold text-slate-800">{race.distanceLabel}</span>
+                         <span className="text-xs text-slate-400">{race.distanceMiles} mi</span>
+                      </div>
+                   </div>
 
-           {/* Rankings Section */}
-           {(race.overall !== '--' || race.gender !== '--' || race.division !== '--') && (
-             <div className="mb-6">
-                <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center">
-                  <Trophy className="w-4 h-4 mr-2 text-amber-500" />
-                  Performance Rankings
-                </h4>
-                <div className="space-y-3">
-                   <PlacementRow label="Overall Place" value={race.overall} icon={Users} />
-                   <PlacementRow label="Gender Place" value={race.gender} icon={User} />
-                   <PlacementRow label="Division Place" value={race.division} icon={Flag} />
-                </div>
-             </div>
-           )}
+                   {/* Rankings Section */}
+                   {(race.overall !== '--' || race.gender !== '--' || race.division !== '--') && (
+                     <div className="mb-6">
+                        <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center">
+                          <Trophy className="w-4 h-4 mr-2 text-amber-500" />
+                          Performance Rankings
+                        </h4>
+                        <div className="space-y-3">
+                           <PlacementRow label="Overall Place" value={race.overall} icon={Users} />
+                           <PlacementRow label="Gender Place" value={race.gender} icon={User} />
+                           <PlacementRow label="Division Place" value={race.division} icon={Flag} />
+                        </div>
+                     </div>
+                   )}
 
-            {/* Notes Section - Conditional Edit */}
-            <div className="mb-2">
-                <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-bold text-slate-900 flex items-center">
-                        <FileText className="w-4 h-4 mr-2 text-slate-500" />
-                        Race Notes
-                    </h4>
-                    {!readOnly && hasChanges && (
-                        <button 
-                            onClick={handleSave}
-                            disabled={isSaving}
-                            className="flex items-center space-x-1 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-full transition-colors animate-in fade-in"
-                        >
-                            <Save className="w-3 h-3" />
-                            <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
-                        </button>
-                    )}
-                </div>
-                
-                {readOnly ? (
-                  <div className={`w-full p-4 rounded-xl border ${notes ? 'bg-slate-50 border-slate-200' : 'bg-slate-50/50 border-slate-100 border-dashed text-center'}`}>
-                    {notes ? (
-                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{notes}</p>
-                    ) : (
-                      <p className="text-sm text-slate-400 italic">No notes recorded for this race.</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="relative">
-                      <textarea 
-                          value={notes}
-                          onChange={(e) => setNotes(e.target.value)}
-                          placeholder="Add your memories, weather conditions, or race strategy here..."
-                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all min-h-[100px] resize-none"
+                    {/* Notes Section */}
+                    <div className="mb-2">
+                        <h4 className="text-sm font-bold text-slate-900 flex items-center mb-2">
+                            <FileText className="w-4 h-4 mr-2 text-slate-500" />
+                            Race Notes
+                        </h4>
+                        
+                        <div className={`w-full p-4 rounded-xl border ${race.notes ? 'bg-slate-50 border-slate-200' : 'bg-slate-50/50 border-slate-100 border-dashed text-center'}`}>
+                            {race.notes ? (
+                                <p className="text-sm text-slate-700 whitespace-pre-wrap">{race.notes}</p>
+                            ) : (
+                                <p className="text-sm text-slate-400 italic">No notes recorded for this race.</p>
+                            )}
+                        </div>
+                    </div>
+
+                   {/* Additional Info */}
+                   <div className="flex justify-between items-center text-xs text-slate-400 pt-4 border-t border-slate-100 mt-4">
+                      <div>ID: {race.id}</div>
+                      <div>Category: {race.category}</div>
+                   </div>
+               </>
+           ) : (
+               // --- EDIT MODE ---
+               <div className="space-y-4">
+                  <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">Event Name</label>
+                      <input 
+                          type="text" 
+                          name="event"
+                          value={formData.event}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
                       />
-                      {!notes && !hasChanges && (
-                          <div className="absolute top-3 right-3 text-slate-300 pointer-events-none">
-                              <Edit3 className="w-4 h-4" />
-                          </div>
-                      )}
-                      <p className="text-xs text-slate-400 mt-2 text-right">
-                        {hasChanges ? 'Unsaved changes' : 'Notes saved'}
-                      </p>
                   </div>
-                )}
-            </div>
 
-           {/* Additional Info */}
-           <div className="flex justify-between items-center text-xs text-slate-400 pt-4 border-t border-slate-100">
-              <div>ID: {race.id}</div>
-              <div>Category: {race.category}</div>
-           </div>
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <label className="block text-xs font-semibold text-slate-500 mb-1">Date</label>
+                          <input 
+                              type="text" 
+                              name="date"
+                              value={formData.date}
+                              onChange={handleChange}
+                              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-semibold text-slate-500 mb-1">Year</label>
+                          <input 
+                              type="number" 
+                              name="year"
+                              value={formData.year}
+                              onChange={handleChange}
+                              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                      </div>
+                  </div>
+
+                  <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">Location</label>
+                      <input 
+                          type="text" 
+                          name="location"
+                          value={formData.location}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <label className="block text-xs font-semibold text-slate-500 mb-1">Time</label>
+                          <input 
+                              type="text" 
+                              name="time"
+                              value={formData.time}
+                              onChange={handleChange}
+                              placeholder="HH:MM:SS"
+                              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-semibold text-slate-500 mb-1">Pace</label>
+                          <input 
+                              type="text" 
+                              name="pace"
+                              value={formData.pace}
+                              onChange={handleChange}
+                              placeholder="MM:SS"
+                              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                      </div>
+                  </div>
+
+                  <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">Distance Override (Optional)</label>
+                      <select
+                          name="distanceType"
+                          value={formData.distanceType}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                      >
+                          <option value="">Auto Detect</option>
+                          {Object.values(RaceCategory).map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                      </select>
+                  </div>
+
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Placements</div>
+                      <div className="grid grid-cols-3 gap-3">
+                          <div>
+                              <label className="block text-[10px] font-semibold text-slate-500 mb-1">Overall</label>
+                              <input 
+                                  type="text" 
+                                  name="overall"
+                                  value={formData.overall}
+                                  onChange={handleChange}
+                                  className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-[10px] font-semibold text-slate-500 mb-1">Gender</label>
+                              <input 
+                                  type="text" 
+                                  name="gender"
+                                  value={formData.gender}
+                                  onChange={handleChange}
+                                  className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-[10px] font-semibold text-slate-500 mb-1">Division</label>
+                              <input 
+                                  type="text" 
+                                  name="division"
+                                  value={formData.division}
+                                  onChange={handleChange}
+                                  className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                              />
+                          </div>
+                      </div>
+                  </div>
+
+                  <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">Notes</label>
+                      <textarea 
+                          name="notes"
+                          value={formData.notes}
+                          onChange={handleChange}
+                          rows={4}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                      />
+                  </div>
+
+                  <div className="pt-4 flex justify-end">
+                      <button 
+                          onClick={handleSave}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center"
+                      >
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Changes
+                      </button>
+                  </div>
+               </div>
+           )}
         </div>
       </div>
     </div>
