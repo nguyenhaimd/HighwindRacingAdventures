@@ -84,7 +84,7 @@ export const DistanceDistributionChart: React.FC<ChartsProps> = ({ data }) => {
 
   const chartData = Object.entries(distribution)
     .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => (b.value as number) - (a.value as number));
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96 flex flex-col">
@@ -128,7 +128,7 @@ export const DistanceBarChart: React.FC<ChartsProps> = ({ data }) => {
 
   const chartData = Object.entries(distribution)
     .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => (b.value as number) - (a.value as number));
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96 flex flex-col">
@@ -231,7 +231,7 @@ export const PerformanceScatterChart: React.FC<ChartsProps> = ({ data }) => {
               name="Date"
               type="number"
               domain={['dataMin', 'dataMax']}
-              tickFormatter={(unixTime) => new Date(unixTime).getFullYear().toString()}
+              tickFormatter={(unixTime: number) => new Date(unixTime).getFullYear().toString()}
               tick={{ fill: '#64748b', fontSize: 12 }} 
               axisLine={false} 
               tickLine={false}
@@ -351,7 +351,7 @@ export const YearlyMileageChart: React.FC<ChartsProps> = ({ data }) => {
 };
 
 export const AveragePaceByDistanceChart: React.FC<ChartsProps> = ({ data }) => {
-  const stats = data.reduce((acc, race) => {
+  const stats = data.reduce((acc: Record<string, { sumPace: number; count: number; distance: number }>, race) => {
     if (race.paceSeconds > 0) {
       if (!acc[race.distanceLabel]) {
         acc[race.distanceLabel] = { sumPace: 0, count: 0, distance: race.distanceMiles };
@@ -363,7 +363,7 @@ export const AveragePaceByDistanceChart: React.FC<ChartsProps> = ({ data }) => {
   }, {} as Record<string, { sumPace: number; count: number; distance: number }>);
 
   const chartData = Object.entries(stats)
-    .map(([label, val]) => ({
+    .map(([label, val]: [string, any]) => ({
       label,
       avgPace: val.sumPace / val.count,
       distance: val.distance
@@ -412,7 +412,7 @@ export const AveragePaceByDistanceChart: React.FC<ChartsProps> = ({ data }) => {
 
 export const YearlyProgressChart: React.FC<ChartsProps> = ({ data }) => {
   // 1. Get unique years, sort descending
-  const years = Array.from(new Set(data.map(d => d.year))).sort((a, b) => b - a);
+  const years = (Array.from(new Set(data.map(d => d.year))) as number[]).sort((a: number, b: number) => b - a);
   // Compare top 5 most recent years
   const displayYears = years.slice(0, 5);
 
@@ -469,7 +469,7 @@ export const YearlyProgressChart: React.FC<ChartsProps> = ({ data }) => {
               type="number"
               domain={[1, 366]}
               ticks={monthTicks}
-              tickFormatter={(val) => {
+              tickFormatter={(val: number) => {
                 const d = new Date(2023, 0, val);
                 return d.toLocaleString('default', { month: 'short' });
               }}
@@ -550,7 +550,7 @@ export const PaceDistributionChart: React.FC<ChartsProps> = ({ data }) => {
 };
 
 export const MonthlyHeatmap: React.FC<ChartsProps> = ({ data }) => {
-  const years = Array.from(new Set(data.map(d => d.year))).sort((a, b) => b - a);
+  const years = (Array.from(new Set(data.map(d => d.year))) as number[]).sort((a, b) => b - a);
   const months = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 
   // Data map: year -> monthIdx -> count

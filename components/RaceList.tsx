@@ -257,7 +257,7 @@ const RaceList: React.FC<RaceListProps> = ({ data, onUpdateRace, isAdmin = false
   const categories = ['All', ...Array.from(new Set(data.map(d => d.category)))].sort();
 
   // Get unique years for filter (descending)
-  const years = ['All', ...Array.from(new Set(data.map(d => d.year))).sort((a, b) => b - a)];
+  const years = ['All', ...Array.from(new Set(data.map(d => d.year))).sort((a, b) => (b as number) - (a as number))];
 
   const filteredData = data.filter(race => {
     const matchesSearch = 
@@ -275,7 +275,7 @@ const RaceList: React.FC<RaceListProps> = ({ data, onUpdateRace, isAdmin = false
   const sortedData = useMemo(() => {
     let items = [...filteredData];
     if (sortConfig !== null) {
-      items.sort((a, b) => {
+      items.sort((a: ProcessedRaceData, b: ProcessedRaceData) => {
         let aValue: number | string = 0;
         let bValue: number | string = 0;
 

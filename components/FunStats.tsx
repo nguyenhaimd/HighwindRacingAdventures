@@ -19,7 +19,7 @@ const FunStats: React.FC<FunStatsProps> = ({ data }) => {
     return acc;
   }, {} as Record<string, number>);
   
-  const favoriteMonth = Object.entries(monthCounts).sort((a, b) => b[1] - a[1])[0];
+  const favoriteMonth = Object.entries(monthCounts).sort((a: [string, number], b: [string, number]) => b[1] - a[1])[0];
 
   // 3. Podium Finishes (Rough estimation based on strings like "1 of 50" or "3 of 200")
   let podiumCount = 0;

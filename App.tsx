@@ -34,7 +34,7 @@ const App: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const hasAutoSeeded = useRef(false);
   const titleClickCount = useRef(0);
-  const titleClickTimeout = useRef<NodeJS.Timeout | null>(null);
+  const titleClickTimeout = useRef<any>(null);
 
   // Helper to populate DB with initial data
   const seedDatabase = async () => {

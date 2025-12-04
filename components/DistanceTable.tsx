@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ProcessedRaceData } from '../types';
 
@@ -13,7 +12,7 @@ const DistanceTable: React.FC<DistanceTableProps> = ({ data }) => {
   }, {} as Record<string, number>);
 
   const sortedStats = Object.entries(stats)
-    .sort((a, b) => b[1] - a[1]); // Sort by count descending
+    .sort((a: [string, number], b: [string, number]) => b[1] - a[1]); // Sort by count descending
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
